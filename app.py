@@ -1,107 +1,93 @@
-import streamlit as st
-from datetime import datetime
+ import streamlit as st
 
-st.set_page_config(page_title="PLOTV2 Scene Generator", page_icon="🎬", layout="centered")
+st.set_page_config(page_title="PLOTV2", page_icon="📜")
+st.title("📜 PLOTV2 Generator")
 
-if 'scenes_5' not in st.session_state:
-    st.session_state.scenes_5 = []
-if 'scenes_10' not in st.session_state:
-    st.session_state.scenes_10 = []
-if 'unlocked' not in st.session_state:
-    st.session_state.unlocked = False
+if 'free_done' not in st.session_state:
+    st.session_state.free_done = False
+if 'paid_scenes' not in st.session_state:
+    st.session_state.paid_scenes = False
+if 'paid_pdf' not in st.session_state:
+    st.session_state.paid_pdf = False
+if 'all_scenes' not in st.session_state:
+    st.session_state.all_scenes = []
 
-st.title("🎬 PLOTV2 Scene Generator")
-st.caption("Generate scenes in English, Twi, French or Pidgin. Pick your mood. Get your script.")
-st.divider()
+title = st.text_input("Video Title", "My lost car")
+language = st.selectbox("Language", ["English", "Twi", "Pidgin", "French"])
+mood = st.selectbox("Mood", [
+    "Drama","Comedy","Action","Romantic","Horror","Thriller","Tragedy","Mystery",
+    "Adventure","Crime","Fantasy","Sci-Fi","Gospel","Family","Sports","War"
+])
 
-col1, col2 = st.columns(2)
-with col1:
-    title = st.text_input("Video Title", placeholder="e.g. The Lost Phone")
-with col2:
-    language = st.selectbox("Language", ["English", "Twi", "French", "Pidgin"])
+def make_scenes(lang, mood, title, total):
+    s = [
+        f"OPENING: The story of {title} starts. Main character worried.",
+        f"PROBLEM: {title} goes missing. Search begins fast.",
+        f"CONFLICT: Fight breaks out because of {title}.",
+        f"TWIST: Secret about {title} comes out. Shock.",
+        f"CLIFFHANGER: Call about {title}. To be continued...",
+        f"INVESTIGATION: Looking for clues about {title}.",
+        f"DANGER: Attack happens over {title}. Someone hurt.",
+        f"HOSPITAL: Recovering. Thinks of {title} always.",
+        f"BETRAYAL: Friend stole {title}. Trust broken.",
+        f"PLAN: New plan to get {title} back. Team ready.",
+        f"INFILTRATION: Sneak in for {title}. Alarm blows.",
+        f"CAPTURE: Caught with {title}. Enemy wins round 1.",
+        f"ESCAPE: Clever escape using {title}. Explosion.",
+        f"FINAL BATTLE: Last fight for {title}. One wins.",
+        f"ENDING: {title} found. Life changed forever."
+    ]
+    
+    if lang == "Twi":
+        s = [x.replace("because of", "ɛsiane").replace("for", "ma") for x in s]
+    elif lang == "Pidgin":
+        s = [x.replace("is", "dey").replace("are", "dey") for x in s]
+    elif lang == "French":
+        s = [x.replace("OPENING", "DÉBUT").replace("for", "pour").replace("of", "de") for x in s]
+    
+    return s[:total]
 
-user_script = st.text_area("Or Paste Your Script", placeholder="Paste script here if you have one...", height=100)
+# FREE 5 SCENES
+st.subheader("1. FREE - 5 Scenes")
+if st.button("Get 5 Scenes FREE", disabled=st.session_state.free_done):
+    st.session_state.free_done = True
+    scenes = make_scenes(language, mood, title, 5)
+    st.session_state.all_scenes = scenes
+    for i, scene in enumerate(scenes, 1):
+        st.write(f"**Scene {i}:** {scene}")
 
-moods = [
-    "Dark", "Comedy", "Romantic", "Action", "Horror", "Drama", "Thriller", "Mystery",
-    "Adventure", "Sci-Fi", "Fantasy", "Documentary", "Motivational", "Sad", "Suspense", "Cinematic"
-]
-mood = st.selectbox("Choose Mood", moods)
-st.divider()
+# PAY 10 CEDIS FOR 10 MORE
+if st.session_state.free_done and not st.session_state.paid_scenes:
+    st.subheader("2. PAY - 10 More Scenes = 10 GHS")
+    st.info("MoMo: 0555834680 | Ref: PLOTV2")
+    if st.button("I Paid 10 Cedis - Unlock"):
+        st.session_state.paid_scenes = True
+        st.rerun()
 
-def generate_scenes(title, script, language, mood, count):
-    base = title if title else "Your Story"
-    if script:
-        base = f"Story based on: {script[:40]}..."
+if st.session_state.paid_scenes:
+    scenes = make_scenes(language, mood, title, 15)[5:]
+    st.session_state.all_scenes.extend(scenes)
+    for i, scene in enumerate(scenes, 6):
+        st.write(f"**Scene {i}:** {scene}")
 
-    templates = {
-        "English": "Scene {n}: In a {mood} tone, {base}. The main character faces a challenge.",
-        "Twi": "Scene {n}: {mood} kwan so, {base}. Nipa titiriw no hyia haw bi.",
-        "French": "Scène {n}: Sur un ton {mood}, {base}. Le personnage principal fait face à un défi.",
-        "Pidgin": "Scene {n}: For {mood} mood, {base}. Main person dey face problem."
-    }
+# SCRIPT TAB - FREE
+if st.session_state.all_scenes:
+    st.subheader("3. SCRIPT TAB - FREE")
+    if st.button("Make Full Script"):
+        script = f"TITLE: {title}\nLANGUAGE: {language}\nMOOD: {mood}\n\n"
+        for i, scene in enumerate(st.session_state.all_scenes, 1):
+            script += f"SCENE {i}\n{scene}\n\n"
+        st.code(script)
+        st.download_button("Download TXT", script, f"{title}.txt")
 
-    scenes = []
-    for i in range(1, count + 1):
-        scene = templates[language].format(n=i, mood=mood.lower(), base=base)
-        scenes.append(scene)
-    return scenes
+# PDF TAB - 10 CEDIS
+if st.session_state.all_scenes and not st.session_state.paid_pdf:
+    st.subheader("4. PDF TAB - 10 GHS")
+    st.info("MoMo: 0555834680 | Ref: PDF")
+    if st.button("I Paid 10 Cedis - Unlock PDF"):
+        st.session_state.paid_pdf = True
+        st.rerun()
 
-if st.button("🎯 Generate 5 Scenes - FREE", type="primary", use_container_width=True):
-    if not title and not user_script:
-        st.error("Please enter a Title OR paste a Script first")
-    else:
-        st.session_state.scenes_5 = generate_scenes(title, user_script, language, mood, 5)
-        st.session_state.scenes_10 = []
-        st.session_state.unlocked = False
-
-if st.session_state.scenes_5:
-    st.subheader(f"Your 5 {language} Scenes - {mood} Mood")
-    for scene in st.session_state.scenes_5:
-        st.write(scene)
-    st.divider()
-
-    st.subheader("Unlock More")
-    col1, col2 = st.columns(2)
-
-    with col1:
-        if st.button("🔓 Unlock 10 Scenes - 10 GHS", use_container_width=True):
-            st.info("""
-            **Send 10 GHS MoMo to: 0555834680**
-            **Reference:** PLOTV2-10SCENES
-            **Then DM screenshot to unlock**
-
-            You will receive 10 full scenes after payment confirmation.
-            """)
-            if not title and not user_script:
-                pass
-            else:
-                st.session_state.scenes_10 = generate_scenes(title, user_script, language, mood, 10)
-                st.session_state.unlocked = True
-
-    with col2:
-        if st.button("📄 Save as PDF - 10 GHS", use_container_width=True):
-            st.info("""
-            **Send 10 GHS MoMo to: 0555834680**
-            **Reference:** PLOTV2-PDF
-            **Then DM screenshot to unlock**
-
-            You will receive PDF download after payment confirmation.
-            """)
-
-if st.session_state.unlocked and st.session_state.scenes_10:
-    st.divider()
-    st.success("✅ Payment Instructions Shown Above. Send screenshot to unlock these scenes:")
-    st.subheader(f"Your 10 {language} Scenes - {mood} Mood")
-    for scene in st.session_state.scenes_10:
-        st.write(scene)
-
-    st.divider()
-    st.subheader("🎁 Bonus: Convert to Full Script - FREE")
-    if st.button("Convert These 10 Scenes to Script"):
-        full_script = "\n\n".join(st.session_state.scenes_10)
-        st.text_area("Your Full Script", full_script, height=300)
-        st.download_button("Download Script.txt", full_script, file_name=f"PLOTV2_{title or 'script'}.txt")
-
-st.divider()
-st.caption("PLOTV2 © 2026 | Questions? DM @Miracle | MoMo: 0555834680")
+if st.session_state.paid_pdf:
+    pdf_text = "\n\n".join([f"SCENE {i+1}: {s}" for i, s in enumerate(st.session_state.all_scenes)])
+    st.download_button("Download PDF", pdf_text, f"{title}.pdf")
