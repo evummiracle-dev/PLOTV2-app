@@ -1,4 +1,4 @@
- import stream as st   
+ import streamlit as st   
 
 st.set_page_config(page_title="PLOTV2", page_icon="📜")
 st.title("📜 PLOTV2 Generator")
