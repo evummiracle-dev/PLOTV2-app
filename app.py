@@ -1,4 +1,4 @@
- import streamlit as st
+ import streamlit as st    
 
 st.set_page_config(page_title="PLOTV2", page_icon="📜")
 st.title("📜 PLOTV2 Generator")
@@ -10,7 +10,7 @@ if 'paid_scenes' not in st.session_state:
 if 'paid_pdf' not in st.session_state:
     st.session_state.paid_pdf = False
 if 'all_scenes' not in st.session_state:
-    st.session_state.all_scenes = []
+    st.session_state.all_scenes = [
 
 title = st.text_input("Video Title", "My lost car")
 language = st.selectbox("Language", ["English", "Twi", "Pidgin", "French"])
