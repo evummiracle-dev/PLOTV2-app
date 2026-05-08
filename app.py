@@ -1,77 +1,72 @@
-import streamlit as st
+ import streamlit as st
+import os
+import tempfile
+import requests
+from openai import OpenAI
+from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
 
-st.set_page_config(page_title="PLOTV2", page_icon="🎬")
-st.title("PLOTV2 Generator")
+st.set_page_config(page_title="PlotV2", layout="centered")
 
-if 'free_done' not in st.session_state:
-    st.session_state.free_done = False
-if 'paid_scenes' not in st.session_state:
-    st.session_state.paid_scenes = False
-if 'paid_pdf' not in st.session_state:
-    st.session_state.paid_pdf = False
-if 'all_scenes' not in st.session_state:
-    st.session_state.all_scenes = []
+# We'll put the API key in Streamlit secrets later, not here
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-title = st.text_input("Video Title", "My lost car")
-language = st.selectbox("Language", ["English", "Twi", "Pidgin", "French"])
-mood = st.selectbox("Mood", ["Drama", "Comedy", "Action", "Romantic", "Horror", "Thriller", "Tragedy", "Mystery", "Adventure", "Crime", "Fantasy", "Sci-Fi", "Gospel", "Family", "Sports", "War"])
+st.title("🎬 PlotV2 - AI Story Video Generator")
+st.write("Paste 15 scenes, one per line. I’ll generate images, audio, and stitch the video.")
 
-def make_scenes(lang, mood, title, total):
-    s = [
-        f"OPENING: The story of {title} starts. Main character worried.",
-        f"PROBLEM: {title} goes missing. Search begins fast.",
-        f"CONFLICT: Fight breaks out because of {title}.",
-        f"TWIST: Secret about {title} comes out. Shock!",
-        f"CLIFFHANGER: Call about {title}. To be continued...",
-        f"INVESTIGATION: Looking for clues about {title}.",
-        f"DANGER: Attack happens over {title}. Someone hurt.",
-        f"HOSPITAL: Recovering. Thinks of {title} always.",
-        f"BETRAYAL: Friend stole {title}. Trust broken.",
-        f"PLAN: New plan to get {title} back. Team ready.",
-        f"INFILTRATION: Sneak in for {title}. Alarm blows.",
-        f"CAPTURE: Caught with {title}. Enemy wins round 1.",
-        f"ESCAPE: Clever escape using {title}. Explosion.",
-        f"FINAL BATTLE: Last fight for {title}. One wins.",
-        f"ENDING: {title} found. Life changed forever."
-    ]
-    if lang == "Twi":
-        s = [x.replace("because of", "efise").replace("for", "ma") for x in s]
-    elif lang == "Pidgin":
-        s = [x.replace("is", "dey").replace("are", "dey") for x in s]
-    elif lang == "French":
-        s = [x.replace("OPENING", "DÉBUT").replace("for", "pour").replace("of", "de") for x in s]
-    return s[:total]
+story_title = st.text_input("Story Title", "The Boy in Kumasi Market")
+story_input = st.text_area("15 Scenes - one per line", height=300,
+                           placeholder="Scene 1: A boy wakes up in Kumasi...\nScene 2: He goes to the market...")
 
-st.subheader("1. FREE - 5 Scenes")
-if st.button("Get 5 Scenes FREE", disabled=st.session_state.free_done):
-    st.session_state.free_done = True
-    scenes = make_scenes(language, mood, title, 5)
-    st.session_state.all_scenes = scenes
-    for i, scene in enumerate(scenes, 1):
-        st.write(f"**Scene {i}:** {scene}")
+def make_video(scenes_text):
+    temp_dir = tempfile.mkdtemp()
+    all_clips = []
 
-if st.session_state.free_done and not st.session_state.paid_scenes:
-    st.subheader("2. PAY - 10 More Scenes = 10 GHS")
-    st.info("MoMo: 0555834680 | Ref: PLOTV2")
-    if st.button("Paid 10 GHS - Unlock"):
-        st.session_state.paid_scenes = True
-        st.rerun()
+    for i, scene_text in enumerate(scenes_text):
+        st.write(f"🎞️ Scene {i+1}/15: Generating image + audio...")
 
-if st.session_state.paid_scenes:
-    scenes = make_scenes(language, mood, title, 15)[5:]
-    st.session_state.all_scenes.extend(scenes)
-    for i, scene in enumerate(scenes, 6):
-        st.write(f"**Scene {i}:** {scene}")
+        # 1. Generate image with DALL-E 3
+        img_path = os.path.join(temp_dir, f"scene_{i}.png")
+        img_res = client.images.generate(
+            model="dall-e-3",
+            prompt=f"Cinematic 16:9 still, {scene_text}",
+            size="1792x1024",
+            quality="standard",
+            n=1
+        )
+        img_data = requests.get(img_res.data[0].url).content
+        with open(img_path, "wb") as f:
+            f.write(img_data)
 
-if st.session_state.all_scenes:
-    st.subheader("3. SCRIPT TAB - FREE")
-    if st.button("Make Full Script"):
-        script = f"TITLE: {title}\nLANGUAGE: {language}\nMOOD: {mood}\n\n"
-        for i, scene in enumerate(st.session_state.all_scenes, 1):
-            script += f"SCENE {i}\n{scene}\n\n"
-        st.code(script)
-        st.download_button("Download TXT", script, f"{title}.txt")
+        # 2. Generate audio with OpenAI TTS - works great for Twi
+        audio_path = os.path.join(temp_dir, f"scene_{i}.mp3")
+        audio_res = client.audio.speech.create(
+            model="tts-1",
+            voice="alloy",
+            input=scene_text
+        )
+        audio_res.stream_to_file(audio_path)
 
-if st.session_state.paid_pdf:
-    st.subheader("4. PDF TAB - 10 GHS")
-    st.info("Pay 10 GHS to MoMo: 0555834680 to unlock PDF")
+        # 3. Combine image + audio with moviepy
+        audio_clip = AudioFileClip(audio_path)
+        img_clip = ImageClip(img_path).set_duration(audio_clip.duration)
+        img_clip = img_clip.set_audio(audio_clip)
+        all_clips.append(img_clip)
+
+    # 4. Stitch final video
+    st.write("🔗 Stitching final video...")
+    final_video = concatenate_videoclips(all_clips, method="compose")
+    output_path = os.path.join(temp_dir, "plotv2_final.mp4")
+    final_video.write_videofile(output_path, fps=24, codec="libx264", audio_codec="aac")
+    return output_path
+
+if st.button("Generate Video"):
+    scenes = [s.strip() for s in story_input.split("\n") if s.strip()]
+
+    if len(scenes)!= 15:
+        st.error("You need exactly 15 scenes, one per line")
+    else:
+        with st.spinner("Creating video... takes 3-5 mins"):
+            video_path = make_video(scenes)
+            st.success("Done!")
+            st.video(video_path)
+            st.download_button("Download MP4", open(video_path, "rb"), file_name=f"{story_title}.mp4")
